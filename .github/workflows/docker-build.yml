@@ -39,9 +39,11 @@ jobs:
 
       - name: Test with API key
         if: ${{ secrets.OPENWEATHER_API_KEY != '' }}
+        env:
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
         run: |
           docker rm -f weather-test || true
-          docker run -d -p 5000:5000 -e OPENWEATHER_API_KEY="${{ secrets.OPENWEATHER_API_KEY }}" --name weather-test weather-api:latest
+          docker run -d -p 5000:5000 -e OPENWEATHER_API_KEY --name weather-test weather-api:latest
 
           for i in {1..10}; do
             if curl -sf http://localhost:5000/weather?city=London; then
