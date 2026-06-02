@@ -13,26 +13,30 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t weather-api:latest .
+        shell: bash
 
       - name: Test health endpoint (without API key)
+        shell: bash
         run: |
           docker rm -f weather-test || true
-          docker run -d -p 5000:5000 --name weather-test weather-api:latest
+          docker run --rm -d -p 5000:5000 --name weather-test weather-api:latest
 
           for i in {1..10}; do
-            if curl -sf http://localhost:5000/health; then
+            if curl -sf "http://localhost:5000/health"; then
               break
             fi
             sleep 2
           done
 
-          curl -f http://localhost:5000/health || exit 1
+          curl -f "http://localhost:5000/health" || exit 1
 
       - name: Test home endpoint
-        run: curl -f http://localhost:5000/ || exit 1
+        shell: bash
+        run: curl -f "http://localhost:5000/" || exit 1
 
       - name: Stop test container
         if: always()
+        shell: bash
         run: |
           docker stop weather-test || true
           docker rm weather-test || true
@@ -41,12 +45,13 @@ jobs:
         if: ${{ secrets.OPENWEATHER_API_KEY != '' }}
         env:
           OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+        shell: bash
         run: |
           docker rm -f weather-test || true
-          docker run -d -p 5000:5000 -e OPENWEATHER_API_KEY --name weather-test weather-api:latest
+          docker run --rm -d -p 5000:5000 -e OPENWEATHER_API_KEY --name weather-test weather-api:latest
 
           for i in {1..10}; do
-            if curl -sf http://localhost:5000/weather?city=London; then
+            if curl -sf "http://localhost:5000/weather?city=London"; then
               break
             fi
             sleep 2
