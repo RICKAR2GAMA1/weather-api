@@ -15,9 +15,8 @@ OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY')
 OPENWEATHER_BASE_URL = 'https://api.openweathermap.org/data/2.5/weather'
 TIMEOUT_SECONDS = 5
 
-# Validación de API key al iniciar
-if not OPENWEATHER_API_KEY:
-    raise ValueError("OPENWEATHER_API_KEY no está configurada en .env")
+# NOTA: no exigimos la API key en el arranque para que endpoints básicos
+# como /health y / funcionen incluso cuando no hay .env disponible.
 
 
 def format_weather_response(data):
@@ -53,6 +52,9 @@ def get_weather_data(city=None, lat=None, lon=None):
     Obtiene datos de clima de OpenWeather API
     Retorna: tupla (datos, status_code, error_message)
     """
+    if not OPENWEATHER_API_KEY:
+        return None, 500, "OPENWEATHER_API_KEY no está configurada en el servidor"
+
     params = {
         'appid': OPENWEATHER_API_KEY,
         'units': 'metric'  # Celsius
