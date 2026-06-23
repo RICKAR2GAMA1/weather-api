@@ -1,6 +1,8 @@
 import os
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
+from flask_cors import CORS
 import requests
+
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -8,6 +10,8 @@ from datetime import datetime
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
+
 app.config['JSON_SORT_KEYS'] = False
 
 # Configuración
@@ -17,6 +21,12 @@ TIMEOUT_SECONDS = 5
 
 # NOTA: no exigimos la API key en el arranque para que endpoints básicos
 # como /health y / funcionen incluso cuando no hay .env disponible.
+
+
+# Esta ruta le dirá a Python que muestre tu HTML de la carpeta templates
+@app.route('/')
+def home():
+    return render_template('INDEX.html') 
 
 
 def format_weather_response(data):
@@ -106,20 +116,20 @@ def health():
     }), 200
 
 
-@app.route('/', methods=['GET'])
-def index():
-    """Información sobre la API"""
-    return jsonify({
-        'service': 'Weather API REST',
-        'version': '1.0.0',
-        'description': 'API que consume OpenWeather para obtener información del clima',
-        'endpoints': {
-            'GET /health': 'Verifica que la API esté funcionando',
-            'GET /': 'Información sobre la API',
-            'GET /weather': 'Obtiene clima por ciudad o coordenadas (parámetros: city o lat,lon)',
-            'POST /weather/multiple': 'Obtiene clima de múltiples ciudades (JSON con lista: cities o coordinates)'
-        }
-    }), 200
+#@app.route('/', methods=['GET'])
+#def index():
+#    """Información sobre la API"""
+#    return jsonify({
+#        'service': 'Weather API REST',
+#        'version': '1.0.0',
+#        'description': 'API que consume OpenWeather para obtener información del clima',
+#        'endpoints': {
+#            'GET /health': 'Verifica que la API esté funcionando',
+#            'GET /': 'Información sobre la API',
+#            'GET /weather': 'Obtiene clima por ciudad o coordenadas (parámetros: city o lat,lon)',
+#            'POST /weather/multiple': 'Obtiene clima de múltiples ciudades (JSON con lista: cities o coordinates)'
+#        }
+#    }), 200
 
 
 @app.route('/weather', methods=['GET'])

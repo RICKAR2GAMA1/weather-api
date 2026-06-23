@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta del Clima</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .contenedor-principal {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-top: 0;
+            font-size: 24px;
+        }
+
+        .busqueda-caja {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: #3498db;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        /* ── Escena de clima ── */
+        .weather-scene {
+            width: 100%;
+            height: 160px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            display: none;   /* se muestra cuando hay resultado */
+        }
+
+        .weather-scene svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Animaciones */
+        @keyframes floatCloud {
+            0%   { transform: translateX(0); }
+            50%  { transform: translateX(18px); }
+            100% { transform: translateX(0); }
+        }
+        @keyframes rotateSun {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+        @keyframes fallRain {
+            0%   { transform: translateY(-10px); opacity: 0; }
+            20%  { opacity: 1; }
+            100% { transform: translateY(80px); opacity: 0; }
+        }
+        @keyframes fallSnow {
+            0%   { transform: translateY(-10px) rotate(0deg); opacity: 0; }
+            20%  { opacity: 1; }
+            100% { transform: translateY(90px) rotate(360deg); opacity: 0; }
+        }
+        @keyframes lightning {
+            0%, 90%, 100% { opacity: 0; }
+            92%, 96%      { opacity: 1; }
+        }
+        @keyframes fogDrift {
+            0%   { opacity: 0.5; transform: translateX(0); }
+            50%  { opacity: 0.8; transform: translateX(12px); }
+            100% { opacity: 0.5; transform: translateX(0); }
+        }
+
+        .sun-rays { transform-origin: 50px 50px; animation: rotateSun 12s linear infinite; }
+        .cloud1   { animation: floatCloud 5s ease-in-out infinite; }
+        .cloud2   { animation: floatCloud 7s ease-in-out infinite reverse; }
+        .cloud3   { animation: floatCloud 6s ease-in-out infinite 1s; }
+        .rain-drop { animation: fallRain 1.2s linear infinite; }
+        .snow-flake { animation: fallSnow 2.5s ease-in infinite; }
+        .bolt      { animation: lightning 4s ease-in-out infinite; }
+        .fog-band  { animation: fogDrift 6s ease-in-out infinite; }
+
+        /* ── Tarjeta de resultados ── */
+        .resultado {
+            background-color: #fafbfc;
+            border: 1px solid #eef2f5;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: left;
+            display: none;
+        }
+
+        .resultado h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 20px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+
+        .dato-clima {
+            display: flex;
+            justify-content: space-between;
+            margin: 12px 0;
+            font-size: 16px;
+            color: #555;
+        }
+
+        .dato-clima strong { color: #333; }
+
+        .actualizacion {
+            font-size: 12px;
+            color: #999;
+            margin-top: 15px;
+            text-align: center;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="contenedor-principal">
+    <h1>Buscar el Clima</h1>
+
+    <div class="busqueda-caja">
+        <input type="text" id="ciudad-input" placeholder="Escribe un país o ciudad (ej. Mexico)">
+        <button id="buscar-btn">Buscar</button>
+    </div>
+
+    <!-- ── ESCENA VISUAL DEL CLIMA ── -->
+    <div id="weather-scene" class="weather-scene"></div>
+
+    <!-- Tarjeta de resultados -->
+    <div id="resultado-clima" class="resultado">
+        <h2 id="ciudad-nombre">Clima</h2>
+        <div id="clima-info"></div>
+    </div>
+</div>
+
+<script>
+    /* =========================================================
+       ESCENAS SVG POR CONDICIÓN
+       datos.weather.main → Clear | Clouds | Rain | Drizzle |
+                            Thunderstorm | Snow | Mist | Fog | Haze
+       ========================================================= */
+
+    function getWeatherScene(condition) {
+        const c = (condition || '').toLowerCase();
+
+        // ── SOLEADO ──────────────────────────────────────────
+        if (c === 'clear') {
+            return `<svg viewBox="0 0 400 160" xmlns="http://www.w3.org/2000/svg">
+                <!-- cielo -->
+                <rect width="400" height="160" fill="#87CEEB"/>
+                <!-- sol rayos -->
+                <g class="sun-rays" transform="translate(200,75)">
+                    <line x1="0" y1="-42" x2="0" y2="-55" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="0" y1="42"  x2="0" y2="55"  stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="-42" y1="0" x2="-55" y2="0" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="42"  y1="0" x2="55"  y2="0" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="-30" y1="-30" x2="-38" y2="-38" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="30"  y1="-30" x2="38"  y2="-38" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="-30" y1="30"  x2="-38" y2="38"  stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="30"  y1="30"  x2="38"  y2="38"  stroke="#FFD700" stroke-width="4" stroke-linecap="round"/>
+                </g>
+                <!-- sol círculo -->
+                <circle cx="200" cy="75" r="30" fill="#FFD700"/>
+                <!-- pasto -->
+                <ellipse cx="200" cy="155" rx="220" ry="40" fill="#4CAF50"/>
+            </svg>`;
+        }
+
+        // ── NUBLADO ──────────────────────────────────────────
+        if (c === 'clouds') {
+            return `<svg viewBox="0 0 400 160" xmlns="http://www.w3.org/2000/svg">
+                <rect width="400" height="160" fill="#B0BEC5"/>
+                <!-- nubes grises -->
+                <g class="cloud1">
+                    <ellipse cx="100" cy="70" rx="55" ry="30" fill="#78909C"/>
+                    <ellipse cx="80"  cy="80" rx="35" ry="22" fill="#90A4AE"/>
+                    <ellipse cx="128" cy="80" rx="35" ry="22" fill="#90A4AE"/>
+                </g>
+                <g class="cloud2">
+                    <ellipse cx="270" cy="55" rx="65" ry="32" fill="#607D8B"/>
+                    <ellipse cx="245" cy="67" rx="42" ry="25" fill="#78909C"/>
+                    <ellipse cx="300" cy="67" rx="42" ry="25" fill="#78909C"/>
+                </g>
+                <g class="cloud3">
+                    <ellipse cx="370" cy="85" rx="45" ry="24" fill="#90A4AE"/>
+                    <ellipse cx="355" cy="95" rx="28" ry="18" fill="#B0BEC5"/>
+                    <ellipse cx="390" cy="95" rx="28" ry="18" fill="#B0BEC5"/>
+                </g>
+                <rect x="0" y="130" width="400" height="30" fill="#546E7A"/>
+            </svg>`;
+        }
+
+        // ── LLUVIA / LLOVIZNA ────────────────────────────────
+        if (c === 'rain' || c === 'drizzle') {
+            return `<svg viewBox="0 0 400 160" xmlns="http://www.w3.org/2000/svg">
+                <rect width="400" height="160" fill="#546E7A"/>
+                <!-- nube principal -->
+                <g class="cloud1">
+                    <ellipse cx="200" cy="55" rx="90" ry="38" fill="#455A64"/>
+                    <ellipse cx="160" cy="68" rx="55" ry="30" fill="#546E7A"/>
+                    <ellipse cx="245" cy="68" rx="55" ry="30" fill="#546E7A"/>
+                </g>
+                <!-- gotas de lluvia -->
+                <line class="rain-drop" x1="100" y1="90" x2="94"  y2="115" stroke="#90CAF9" stroke-width="2.5" stroke-linecap="round" style="animation-delay:0s"/>
+                <line class="rain-drop" x1="140" y1="85" x2="134" y2="110" stroke="#90CAF9" stroke-width="2.5" stroke-linecap="round" style="animation-delay:0.15s"/>
+                <line class="rain-drop" x1="180" y1="92" x2="174" y2="117" stroke="#90CAF9" stroke-width="2.5" stroke-linecap="round" style="animation-delay:0.3s"/>
+                <line class="rain-drop" x1="220" y1="88" x2="214" y2="113" stroke="#90CAF9" stroke-width="2.5" stroke-linecap="round" style="animation-delay:0.45s"/>
+                <line class="rain-drop" x1="260" y1="93" x2="254" y2="118" stroke="#90CAF9" stroke-width="2.5" stroke-linecap="round" style="animation-delay:0.6s"/>
+                <line class="rain-drop" x1="300" y1="87" x2="294" y2="112" stroke="#90CAF9" stroke-width="2.5" stroke-linecap="round" style="animation-delay:0.75s"/>
+                <line class="rain-drop" x1="120" y1="100" x2="114" y2="125" stroke="#64B5F6" stroke-width="2"   stroke-linecap="round" style="animation-delay:0.2s"/>
+                <line class="rain-drop" x1="200" y1="100" x2="194" y2="125" stroke="#64B5F6" stroke-width="2"   stroke-linecap="round" style="animation-delay:0.5s"/>
+                <line class="rain-drop" x1="280" y1="100" x2="274" y2="125" stroke="#64B5F6" stroke-width="2"   stroke-linecap="round" style="animation-delay:0.8s"/>
+                <rect x="0" y="140" width="400" height="20" fill="#37474F"/>
+            </svg>`;
+        }
+
+        // ── TORMENTA ─────────────────────────────────────────
+        if (c === 'thunderstorm') {
+            return `<svg viewBox="0 0 400 160" xmlns="http://www.w3.org/2000/svg">
+                <rect width="400" height="160" fill="#263238"/>
+                <g class="cloud1">
+                    <ellipse cx="200" cy="55" rx="100" ry="42" fill="#1C313A"/>
+                    <ellipse cx="155" cy="70" rx="60"  ry="32" fill="#263238"/>
+                    <ellipse cx="250" cy="70" rx="60"  ry="32" fill="#263238"/>
+                </g>
+                <!-- rayo -->
+                <polyline class="bolt" points="195,78 182,102 196,102 180,130" fill="none" stroke="#FFD600" stroke-width="4" stroke-linejoin="round"/>
+                <!-- lluvia -->
+                <line class="rain-drop" x1="100" y1="90" x2="92"  y2="118" stroke="#78909C" stroke-width="2" stroke-linecap="round" style="animation-delay:0s"/>
+                <line class="rain-drop" x1="145" y1="85" x2="137" y2="113" stroke="#78909C" stroke-width="2" stroke-linecap="round" style="animation-delay:0.25s"/>
+                <line class="rain-drop" x1="255" y1="90" x2="247" y2="118" stroke="#78909C" stroke-width="2" stroke-linecap="round" style="animation-delay:0.4s"/>
+                <line class="rain-drop" x1="300" y1="85" x2="292" y2="113" stroke="#78909C" stroke-width="2" stroke-linecap="round" style="animation-delay:0.6s"/>
+                <line class="rain-drop" x1="330" y1="92" x2="322" y2="120" stroke="#78909C" stroke-width="2" stroke-linecap="round" style="animation-delay:0.1s"/>
+                <rect x="0" y="142" width="400" height="18" fill="#1A237E" opacity="0.5"/>
+            </svg>`;
+        }
+
+        // ── NIEVE ─────────────────────────────────────────────
+        if (c === 'snow') {
+            return `<svg viewBox="0 0 400 160" xmlns="http://www.w3.org/2000/svg">
+                <rect width="400" height="160" fill="#ECEFF1"/>
+                <g class="cloud1">
+                    <ellipse cx="200" cy="55" rx="90" ry="36" fill="#CFD8DC"/>
+                    <ellipse cx="160" cy="66" rx="55" ry="28" fill="#ECEFF1"/>
+                    <ellipse cx="245" cy="66" rx="55" ry="28" fill="#ECEFF1"/>
+                </g>
+                <!-- copos -->
+                <text class="snow-flake" x="100" y="95"  font-size="16" fill="#90A4AE" style="animation-delay:0s">❄</text>
+                <text class="snow-flake" x="145" y="90"  font-size="12" fill="#B0BEC5" style="animation-delay:0.4s">❄</text>
+                <text class="snow-flake" x="185" y="98"  font-size="18" fill="#78909C" style="animation-delay:0.8s">❄</text>
+                <text class="snow-flake" x="230" y="92"  font-size="14" fill="#90A4AE" style="animation-delay:0.2s">❄</text>
+                <text class="snow-flake" x="270" y="96"  font-size="16" fill="#B0BEC5" style="animation-delay:0.6s">❄</text>
+                <text class="snow-flake" x="310" y="91"  font-size="12" fill="#78909C" style="animation-delay:1s">❄</text>
+                <!-- nieve en el suelo -->
+                <ellipse cx="200" cy="158" rx="220" ry="22" fill="white"/>
+            </svg>`;
+        }
+
+        // ── NIEBLA / NEBLINA ──────────────────────────────────
+        if (c === 'mist' || c === 'fog' || c === 'haze' || c === 'smoke' || c === 'dust') {
+            return `<svg viewBox="0 0 400 160" xmlns="http://www.w3.org/2000/svg">
+                <rect width="400" height="160" fill="#CFD8DC"/>
+                <rect class="fog-band" x="-20" y="40"  width="440" height="22" rx="11" fill="#B0BEC5" opacity="0.7" style="animation-delay:0s"/>
+                <rect class="fog-band" x="-20" y="72"  width="440" height="18" rx="9"  fill="#90A4AE" opacity="0.6" style="animation-delay:1s"/>
+                <rect class="fog-band" x="-20" y="100" width="440" height="20" rx="10" fill="#B0BEC5" opacity="0.7" style="animation-delay:2s"/>
+                <rect class="fog-band" x="-20" y="126" width="440" height="16" rx="8"  fill="#78909C" opacity="0.5" style="animation-delay:0.5s"/>
+                <rect x="0" y="148" width="400" height="12" fill="#607D8B"/>
+            </svg>`;
+        }
+
+        // ── DEFAULT (condición desconocida) ───────────────────
+        return `<svg viewBox="0 0 400 160" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="160" fill="#90A4AE"/>
+            <text x="200" y="88" text-anchor="middle" font-size="20" fill="white" font-family="sans-serif">🌡 ${condition}</text>
+        </svg>`;
+    }
+
+    /* =========================================================
+       FETCH + RENDER
+       ========================================================= */
+    document.getElementById('buscar-btn').addEventListener('click', () => {
+        const ciudad = document.getElementById('ciudad-input').value.trim();
+        if (!ciudad) { alert('Por favor, escribe un lugar.'); return; }
+
+        fetch(`/weather?city=${encodeURIComponent(ciudad)}`)
+            .then(r => {
+                if (!r.ok) throw new Error('No se encontró la ciudad o hubo un error en el servidor');
+                return r.json();
+            })
+            .then(res => {
+                const datos = res.data;
+
+                // ── Mostrar escena según condición ──
+                const sceneEl = document.getElementById('weather-scene');
+                sceneEl.style.display = 'block';
+                sceneEl.innerHTML = getWeatherScene(datos.weather.main);
+
+                // ── Mostrar tarjeta de datos ──
+                const contenedor = document.getElementById('resultado-clima');
+                contenedor.style.display = 'block';
+                document.getElementById('ciudad-nombre').textContent = `Clima en: ${datos.city}, ${datos.country}`;
+
+                document.getElementById('clima-info').innerHTML = `
+                    <div class="dato-clima"><strong>Temperatura Actual:</strong> <span>${datos.temperature.current} °C</span></div>
+                    <div class="dato-clima"><strong>Sensación Térmica:</strong>  <span>${datos.temperature.feels_like} °C</span></div>
+                    <div class="dato-clima"><strong>Humedad:</strong>            <span>${datos.humidity}%</span></div>
+                    <div class="dato-clima"><strong>Presión:</strong>            <span>${datos.pressure} hPa</span></div>
+                    <div class="dato-clima"><strong>Condición:</strong>          <span style="text-transform:capitalize">${datos.weather.description}</span></div>
+                    <div class="dato-clima"><strong>Viento:</strong>             <span>${datos.wind_speed} m/s</span></div>
+                    <span class="actualizacion">Última actualización: ${datos.timestamp}</span>
+                `;
+            })
+            .catch(err => alert('Error al obtener los datos: ' + err.message));
+    });
+
+    document.getElementById('ciudad-input').addEventListener('keypress', e => {
+        if (e.key === 'Enter') document.getElementById('buscar-btn').click();
+    });
+</script>
+</body>
+</html>
